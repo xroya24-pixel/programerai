@@ -78,7 +78,7 @@ export default function KelasPage() {
               <div className="p-2 rounded-xl bg-primary/10 border border-primary/20"><Crown className="w-5 h-5 text-primary" /></div>
               <div>
                 <h3 className="text-sm font-semibold">Upgrade ke Premium</h3>
-                <p className="text-xs text-muted-foreground/70 mt-0.5">Akses kelas premium dan fitur eksklusif.</p>
+                <p className="text-xs text-muted-foreground/70 mt-0.5">Akses kelas premium, realtime chat, dan fitur eksklusif lainnya.</p>
               </div>
             </div>
             <button onClick={handleUpgrade} disabled={upgrading}

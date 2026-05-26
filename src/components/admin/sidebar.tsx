@@ -18,6 +18,8 @@ import {
   ChevronRight,
   Menu,
   Sprout,
+  MessageCircle,
+  Crown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -35,6 +37,8 @@ const sections = [
     label: "MANAGEMENT",
     items: [
       { label: "Payments", href: "/admin/payments", icon: CreditCard },
+      { label: "Premium", href: "/admin/premium", icon: Crown },
+      { label: "Live Support", href: "/admin/support", icon: MessageCircle },
       { label: "Homepage", href: "/admin/homepage", icon: Home },
       { label: "Database", href: "/admin/database", icon: Database },
     ],

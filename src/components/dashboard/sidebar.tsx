@@ -12,23 +12,33 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
+  MessageCircle,
+  Crown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-const sidebarLinks = [
+import { useUserRole } from "@/hooks/use-auth";
+
+const baseLinks = [
   { label: "Dashboard", href: "/member/dashboard", icon: LayoutDashboard },
   { label: "Semua Kelas", href: "/member/kelas", icon: BookOpen },
   { label: "Progress", href: "/member/progress", icon: BarChart3 },
   { label: "Bookmark", href: "/member/bookmark", icon: Bookmark },
   { label: "Profile", href: "/member/profile", icon: User },
+  { label: "Live Chat", href: "/member/chat", icon: MessageCircle },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
+  const { isPremium } = useUserRole();
+
+  const sidebarLinks = isPremium
+    ? baseLinks
+    : baseLinks.filter((l) => l.href !== "/member/chat");
 
   const handleLogout = async () => {
     document.cookie = "opencode_session=;path=/;max-age=0";
