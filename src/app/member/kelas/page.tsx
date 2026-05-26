@@ -39,7 +39,7 @@ export default function KelasPage() {
         supabase.from("courses")
           .select("*, categories(title)")
           .eq("status", "published")
-          .order("created_at", { ascending: true }),
+          .order("sort_order", { ascending: true, nullsFirst: false }),
         user?.user
           ? supabase.from("enrollments").select("course_id, progress").eq("user_id", user.user.id)
           : Promise.resolve({ data: [] }),
@@ -99,43 +99,61 @@ export default function KelasPage() {
           <p className="text-sm text-muted-foreground/70">Belum ada kelas tersedia.</p>
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {courses.map((course, i) => {
-            const locked = course.type === "premium" && !isPremium;
-            const progress = getProgress(course.id);
-            const colors = ["from-indigo-500/20 to-blue-500/10", "from-cyan-500/20 to-teal-500/10", "from-blue-500/20 to-indigo-500/10", "from-gray-500/20 to-indigo-500/10", "from-emerald-500/20 to-teal-500/10", "from-yellow-500/20 to-orange-500/10"];
-            return (
-              <motion.div key={course.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: i * 0.03 }}
-                onClick={() => { if (!locked) router.push(`/member/kelas/${course.slug}`); }}
-                className={cn(
-                  "relative rounded-2xl bg-[#0F172A] border border-white/[0.04] p-5 transition-all duration-300 overflow-hidden group cursor-pointer",
-                  locked ? "opacity-70 hover:opacity-80" : "hover:border-white/[0.08] hover:-translate-y-0.5 hover:shadow-[0_0_20px_rgba(99,102,241,0.04)]"
-                )}>
-                <div className={cn("absolute inset-0 bg-gradient-to-br opacity-40 pointer-events-none", colors[i % colors.length])} />
-                <div className="relative">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className={cn("px-2 py-0.5 rounded-md text-[10px] font-medium border",
-                      course.type === "premium"
-                        ? "bg-primary/10 text-primary border-primary/20"
-                        : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                    )}>
-                      {course.type === "premium" ? "Premium" : "Free"}
-                    </div>
-                    {locked && <Lock className="w-4 h-4 text-muted-foreground/40" />}
-                    {course.type === "premium" && isPremium && <Unlock className="w-4 h-4 text-primary" />}
-                  </div>
-                  <h3 className="text-sm font-semibold mb-1">{course.title}</h3>
-                  <p className="text-xs text-muted-foreground/60 mb-3">{course.categories?.title ?? ""} · {course.level}</p>
-                  <div className="flex items-center justify-between text-[10px] text-muted-foreground/40">
-                    {progress > 0 && (
-                      <span className="flex items-center gap-1"><BookOpen className="w-3 h-3" /> {progress}%</span>
-                    )}
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
+        (() => {
+          const grouped: Record<string, Course[]> = {};
+          const catOrder: string[] = [];
+          courses.forEach((c) => {
+            const t = c.categories?.title ?? "Lainnya";
+            if (!grouped[t]) { grouped[t] = []; catOrder.push(t); }
+            grouped[t].push(c);
+          });
+
+          return catOrder.map((cat) => (
+            <section key={cat}>
+              <h2 className="text-base font-semibold mb-3 tracking-tight">
+                {cat === "Lainnya" ? "Kelas Lainnya" : cat}
+                <span className="text-xs text-muted-foreground/40 font-normal ml-2.5">{grouped[cat].length} kelas</span>
+              </h2>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+                {grouped[cat].map((course, i) => {
+                  const locked = course.type === "premium" && !isPremium;
+                  const progress = getProgress(course.id);
+                  const colors = ["from-indigo-500/20 to-blue-500/10", "from-cyan-500/20 to-teal-500/10", "from-blue-500/20 to-indigo-500/10", "from-gray-500/20 to-indigo-500/10", "from-emerald-500/20 to-teal-500/10", "from-yellow-500/20 to-orange-500/10"];
+                  return (
+                    <motion.div key={course.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: i * 0.03 }}
+                      onClick={() => { if (!locked) router.push(`/member/kelas/${course.slug}`); }}
+                      className={cn(
+                        "relative rounded-2xl bg-[#0F172A] border border-white/[0.04] p-5 transition-all duration-300 overflow-hidden group cursor-pointer",
+                        locked ? "opacity-70 hover:opacity-80" : "hover:border-white/[0.08] hover:-translate-y-0.5 hover:shadow-[0_0_20px_rgba(99,102,241,0.04)]"
+                      )}>
+                      <div className={cn("absolute inset-0 bg-gradient-to-br opacity-40 pointer-events-none", colors[i % colors.length])} />
+                      <div className="relative">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className={cn("px-2 py-0.5 rounded-md text-[10px] font-medium border",
+                            course.type === "premium"
+                              ? "bg-primary/10 text-primary border-primary/20"
+                              : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                          )}>
+                            {course.type === "premium" ? "Premium" : "Free"}
+                          </div>
+                          {locked && <Lock className="w-4 h-4 text-muted-foreground/40" />}
+                          {course.type === "premium" && isPremium && <Unlock className="w-4 h-4 text-primary" />}
+                        </div>
+                        <h3 className="text-sm font-semibold mb-1">{course.title}</h3>
+                        <p className="text-xs text-muted-foreground/60 mb-3">{course.level}</p>
+                        <div className="flex items-center justify-between text-[10px] text-muted-foreground/40">
+                          {progress > 0 && (
+                            <span className="flex items-center gap-1"><BookOpen className="w-3 h-3" /> {progress}%</span>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </section>
+          ));
+        })()
       )}
     </div>
   );
