@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { BookOpen, Lock, Crown, Unlock, Code, Server, Smartphone, Palette } from "lucide-react";
+import { BookOpen, Crown, Code, Server, Smartphone, Palette } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useUserRole, upgradeToPremium } from "@/hooks/use-auth";
@@ -36,8 +36,6 @@ const catColors: Record<string, string> = {
   Mobile: "from-purple-500/20 to-pink-500/10",
   "UI/UX": "from-orange-500/20 to-rose-500/10",
 };
-
-const cardColors = ["from-indigo-500/20 to-blue-500/10", "from-cyan-500/20 to-teal-500/10", "from-blue-500/20 to-indigo-500/10", "from-gray-500/20 to-indigo-500/10", "from-emerald-500/20 to-teal-500/10", "from-yellow-500/20 to-orange-500/10"];
 
 export default function KelasPage() {
   const { isPremium, loading: roleLoading } = useUserRole();
@@ -157,7 +155,7 @@ export default function KelasPage() {
             })}
           </motion.div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
             {filteredCourses.length === 0 ? (
               <div className="col-span-full rounded-2xl bg-[#0F172A] border border-white/[0.04] p-12 text-center">
                 <BookOpen className="w-8 h-8 text-muted-foreground/20 mx-auto mb-3" />
@@ -171,28 +169,24 @@ export default function KelasPage() {
                   <motion.div key={course.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: i * 0.03 }}
                     onClick={() => { if (!locked) router.push(`/member/kelas/${course.slug}`); }}
                     className={cn(
-                      "relative rounded-2xl bg-[#0F172A] border border-white/[0.04] p-5 transition-all duration-300 overflow-hidden group cursor-pointer",
-                      locked ? "opacity-70 hover:opacity-80" : "hover:border-white/[0.08] hover:-translate-y-0.5 hover:shadow-[0_0_20px_rgba(99,102,241,0.04)]"
+                      "rounded-xl bg-[#0F172A] border border-white/[0.04] p-3.5 transition-all duration-200 cursor-pointer",
+                      locked ? "opacity-60" : "hover:border-white/[0.08] hover:-translate-y-0.5"
                     )}>
-                    <div className={cn("absolute inset-0 bg-gradient-to-br opacity-40 pointer-events-none", cardColors[i % cardColors.length])} />
-                    <div className="relative">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className={cn("px-2 py-0.5 rounded-md text-[10px] font-medium border",
-                          course.type === "premium" ? "bg-primary/10 text-primary border-primary/20" : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                        )}>
-                          {course.type === "premium" ? "Premium" : "Free"}
-                        </div>
-                        {locked && <Lock className="w-4 h-4 text-muted-foreground/40" />}
-                        {course.type === "premium" && isPremium && <Unlock className="w-4 h-4 text-primary" />}
-                      </div>
-                      <h3 className="text-sm font-semibold mb-1">{course.title}</h3>
-                      <p className="text-xs text-muted-foreground/60 mb-3">{course.level}</p>
-                      <div className="flex items-center justify-between text-[10px] text-muted-foreground/40">
-                        {progress > 0 && (
-                          <span className="flex items-center gap-1"><BookOpen className="w-3 h-3" /> {progress}%</span>
-                        )}
-                      </div>
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <h3 className="text-sm font-semibold leading-snug">{course.title}</h3>
+                      <span className={cn(
+                        "shrink-0 px-1.5 py-[2px] rounded text-[8px] font-semibold border leading-none",
+                        course.type === "premium" ? "bg-primary/10 text-primary border-primary/20" : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                      )}>
+                        {course.type === "premium" ? "Premium" : "Free"}
+                      </span>
                     </div>
+                    <p className="text-[11px] text-muted-foreground/50">{course.level}</p>
+                    {progress > 0 && (
+                      <div className="mt-2.5 h-1 rounded-full bg-white/[0.04] overflow-hidden">
+                        <div className="h-full rounded-full bg-primary/40" style={{ width: `${progress}%` }} />
+                      </div>
+                    )}
                   </motion.div>
                 );
               })
