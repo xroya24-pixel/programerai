@@ -55,6 +55,7 @@ export function LessonEditor() {
   const [saving, setSaving] = useState(false);
   const [preview, setPreview] = useState(false);
   const [youtubeId, setYoutubeId] = useState("");
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [lesson, setLesson] = useState<{ title: string; content: string; video_url: string } | null>(null);
 
   useEffect(() => { setYoutubeId(extractYoutubeId(videoUrl)); }, [videoUrl]);
@@ -80,13 +81,25 @@ export function LessonEditor() {
     editorProps: { attributes: { class: "tiptap-editor" } },
   });
 
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2500);
+    return () => clearTimeout(t);
+  }, [toast]);
+
   const handleSave = async () => {
     if (!title.trim() || !editor) return;
     setSaving(true);
+    setToast(null);
     const content = JSON.stringify(editor.getJSON());
     const supabase = createClient();
-    await supabase.from("lessons").update({ title, content, video_url: videoUrl }).eq("id", lessonId);
+    const { error } = await supabase.from("lessons").update({ title, content, video_url: videoUrl }).eq("id", lessonId);
     setSaving(false);
+    if (error) {
+      setToast({ type: "error", message: error.message });
+    } else {
+      setToast({ type: "success", message: "Lesson berhasil disimpan" });
+    }
   };
 
   if (!editor) return null;
@@ -145,6 +158,16 @@ export function LessonEditor() {
           </div>
         )}
       </div>
+
+      {toast && (
+        <div className={`px-4 py-2.5 rounded-xl text-sm font-medium flex items-center gap-2 ${
+          toast.type === "success"
+            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+            : "bg-red-500/10 text-red-400 border border-red-500/20"
+        }`}>
+          {toast.type === "success" ? "✓" : "✕"} {toast.message}
+        </div>
+      )}
 
       {preview ? (
         <div className="rounded-xl border border-white/[0.06] bg-[#0F172A] p-8 min-h-[400px]">
