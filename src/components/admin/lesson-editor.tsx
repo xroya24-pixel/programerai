@@ -77,9 +77,16 @@ export function LessonEditor() {
       CodeBlockLowlight.configure({ lowlight }),
       Image.configure({ inline: false, allowBase64: true }),
     ],
-    content: lesson?.content ? JSON.parse(lesson.content) : { type: "doc", content: [] },
+    content: { type: "doc", content: [] },
     editorProps: { attributes: { class: "tiptap-editor" } },
+    immediatelyRender: false,
   });
+
+  useEffect(() => {
+    if (editor && lesson?.content) {
+      try { editor.commands.setContent(JSON.parse(lesson.content)); } catch {}
+    }
+  }, [editor, lesson?.content]);
 
   useEffect(() => {
     if (!toast) return;
