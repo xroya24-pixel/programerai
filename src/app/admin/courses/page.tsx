@@ -212,10 +212,15 @@ function CoursesContent() {
   const fetchData = async () => {
     setLoading(true);
     const supabase = createClient();
-    const [coursesRes, catsRes] = await Promise.all([
-      supabase.from("courses")
+    let coursesRes = await supabase.from("courses")
+      .select("*, categories(id, title, icon, description, slug), chapters(id, lessons(id))")
+      .order("sort_order", { ascending: true });
+    if (coursesRes.error?.message?.includes("sort_order")) {
+      coursesRes = await supabase.from("courses")
         .select("*, categories(id, title, icon, description, slug), chapters(id, lessons(id))")
-        .order("sort_order", { ascending: true }),
+        .order("created_at", { ascending: true });
+    }
+    const [catsRes] = await Promise.all([
       supabase.from("categories").select("*").order("sort_order", { ascending: true }),
     ]);
     const fetched = (coursesRes.data ?? []) as unknown as Course[];
