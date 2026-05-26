@@ -18,19 +18,23 @@ interface Lesson {
   content?: string;
 }
 
+function escapeHtml(s: string) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+}
+
 function renderTiptap(json: string): string {
   try {
     const doc = JSON.parse(json);
     return (doc.content ?? []).map((node: any): string => {
       if (node.type === "paragraph") {
         const text = (node.content ?? []).map((n: any) => {
-          let t = n.text ?? "";
+          let t = escapeHtml(n.text ?? "");
           if (n.marks) {
             n.marks.forEach((m: any) => {
               if (m.type === "bold") t = `<strong>${t}</strong>`;
               if (m.type === "italic") t = `<em>${t}</em>`;
               if (m.type === "code") t = `<code>${t}</code>`;
-              if (m.type === "link") t = `<a href="${m.attrs?.href ?? "#"}" target="_blank">${t}</a>`;
+              if (m.type === "link") t = `<a href="${escapeHtml(m.attrs?.href ?? "#")}" target="_blank">${t}</a>`;
             });
           }
           return t;
@@ -39,22 +43,24 @@ function renderTiptap(json: string): string {
       }
       if (node.type === "heading") {
         const tag = `h${node.attrs?.level ?? 2}`;
-        const text = (node.content ?? []).map((n: any) => n.text ?? "").join("");
+        const text = (node.content ?? []).map((n: any) => escapeHtml(n.text ?? "")).join("");
         return `<${tag}>${text}</${tag}>`;
       }
       if (node.type === "codeBlock") {
-        return `<pre><code>${(node.content ?? []).map((n: any) => n.text ?? "").join("")}</code></pre>`;
+        const lang = node.attrs?.language ?? "";
+        const code = (node.content ?? []).map((n: any) => n.text ?? "").join("");
+        return `<pre class="relative"><div class="flex items-center justify-between px-4 py-1.5 text-[10px] text-muted-foreground/40 border-b border-white/[0.04]">${lang ? `<span>${escapeHtml(lang)}</span>` : ""}<button class="copy-btn" data-code="${escapeHtml(code)}">Salin</button></div><code class="block p-4 text-sm font-mono leading-relaxed">${escapeHtml(code)}</code></pre>`;
       }
       if (node.type === "bulletList") {
         const items = (node.content ?? []).map((n: any) => {
-          const text = (n.content ?? []).map((c: any) => (c.content ?? []).map((t: any) => t.text ?? "").join("")).join("");
+          const text = (n.content ?? []).map((c: any) => (c.content ?? []).map((t: any) => escapeHtml(t.text ?? "")).join("")).join("");
           return `<li>${text}</li>`;
         }).join("");
         return `<ul>${items}</ul>`;
       }
       if (node.type === "orderedList") {
         const items = (node.content ?? []).map((n: any) => {
-          const text = (n.content ?? []).map((c: any) => (c.content ?? []).map((t: any) => t.text ?? "").join("")).join("");
+          const text = (n.content ?? []).map((c: any) => (c.content ?? []).map((t: any) => escapeHtml(t.text ?? "")).join("")).join("");
           return `<li>${text}</li>`;
         }).join("");
         return `<ol>${items}</ol>`;
