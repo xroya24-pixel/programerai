@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { BookOpen, Crown, Code, Server, Smartphone, Palette } from "lucide-react";
+import { BookOpen, Crown, Code, Server, Brain, Rocket } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useUserRole, upgradeToPremium } from "@/hooks/use-auth";
@@ -23,18 +23,11 @@ interface Enrollment {
   progress: number;
 }
 
-const catIcons: Record<string, typeof Code> = {
-  Frontend: Code,
-  Backend: Server,
-  Mobile: Smartphone,
-  "UI/UX": Palette,
-};
-
-const catColors: Record<string, string> = {
-  Frontend: "from-sky-500/20 to-indigo-500/10",
-  Backend: "from-emerald-500/20 to-teal-500/10",
-  Mobile: "from-purple-500/20 to-pink-500/10",
-  "UI/UX": "from-orange-500/20 to-rose-500/10",
+const catMap: Record<string, { icon: typeof Code; color: string }> = {
+  "Frontend Development": { icon: Code, color: "from-sky-500/20 to-indigo-500/10" },
+  "Backend Development": { icon: Server, color: "from-emerald-500/20 to-teal-500/10" },
+  "AI Programming": { icon: Brain, color: "from-purple-500/20 to-pink-500/10" },
+  "DevOps & Deploy": { icon: Rocket, color: "from-orange-500/20 to-amber-500/10" },
 };
 
 export default function KelasPage() {
@@ -129,17 +122,16 @@ export default function KelasPage() {
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
             className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {catOrder.map((cat) => {
-              const Icon = catIcons[cat] ?? BookOpen;
+              const m = catMap[cat] ?? { icon: BookOpen, color: "from-gray-500/20 to-indigo-500/10" };
+              const Icon = m.icon;
               const active = activeCat === cat;
               return (
                 <button key={cat} onClick={() => setActiveCat(active ? null : cat)}
                   className={cn(
                     "rounded-2xl border p-4 text-left transition-all duration-200 relative overflow-hidden group",
-                    active
-                      ? "bg-primary/10 border-primary/20 shadow-[0_0_12px_rgba(99,102,241,0.06)]"
-                      : "bg-[#0F172A] border-white/[0.04] hover:border-white/[0.08]"
+                    active ? "bg-primary/10 border-primary/20" : "bg-[#0F172A] border-white/[0.04] hover:border-white/[0.08]"
                   )}>
-                  <div className={cn("absolute inset-0 bg-gradient-to-br opacity-30 pointer-events-none", catColors[cat] ?? "from-gray-500/20 to-indigo-500/10")} />
+                  <div className={cn("absolute inset-0 bg-gradient-to-br opacity-30 pointer-events-none", m.color)} />
                   <div className="relative">
                     <div className={cn(
                       "flex items-center justify-center w-9 h-9 rounded-xl border mb-2.5",
@@ -163,23 +155,18 @@ export default function KelasPage() {
               </div>
             ) : (
               filteredCourses.map((course, i) => {
-                const locked = course.type === "premium" && !isPremium;
                 const progress = getProgress(course.id);
                 return (
                   <motion.div key={course.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: i * 0.03 }}
-                    onClick={() => { if (!locked) router.push(`/member/kelas/${course.slug}`); }}
-                    className={cn(
-                      "rounded-xl bg-[#0F172A] border border-white/[0.04] p-3.5 transition-all duration-200 cursor-pointer",
-                      locked ? "opacity-60" : "hover:border-white/[0.08] hover:-translate-y-0.5"
-                    )}>
+                    onClick={() => router.push(`/member/kelas/${course.slug}`)}
+                    className="rounded-xl bg-[#0F172A] border border-white/[0.04] p-3.5 transition-all duration-200 cursor-pointer hover:border-white/[0.08] hover:-translate-y-0.5">
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <h3 className="text-sm font-semibold leading-snug">{course.title}</h3>
-                      <span className={cn(
-                        "shrink-0 px-1.5 py-[2px] rounded text-[8px] font-semibold border leading-none",
-                        course.type === "premium" ? "bg-primary/10 text-primary border-primary/20" : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                      )}>
-                        {course.type === "premium" ? "Premium" : "Free"}
-                      </span>
+                      {course.type === "premium" && (
+                        <span className="shrink-0 px-1.5 py-[2px] rounded text-[8px] font-semibold border leading-none bg-primary/10 text-primary border-primary/20">
+                          Premium
+                        </span>
+                      )}
                     </div>
                     <p className="text-[11px] text-muted-foreground/50">{course.level}</p>
                     {progress > 0 && (
