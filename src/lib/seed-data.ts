@@ -1,5 +1,5 @@
 export interface SeedCourse {
-  id: string; title: string; slug: string; description: string; level: string; type: string; status: string; category_id: string; created_at: string;
+  id: string; title: string; slug: string; description: string; level: string; type: string; status: string; category_id: string; sort_order: number; created_at: string;
 }
 export interface SeedChapter {
   id: string; course_id: string; title: string; sort_order: number;
@@ -20,8 +20,9 @@ const catData = [
 function t(d: string) { return JSON.stringify({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: d }] }] }); }
 
 export function getSeedData() {
+  let orderCounter = 0;
   const c = (id: string, title: string, desc: string, level: string, type: string, catId: string) => ({
-    id, title, slug: title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""), description: t(desc), level, type, status: "published" as const, category_id: catId, created_at: new Date(Date.now() - Math.random() * 30 * 86400000).toISOString(),
+    id, title, slug: title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""), description: t(desc), level, type, status: "published" as const, category_id: catId, sort_order: orderCounter++, created_at: new Date(Date.now() - Math.random() * 30 * 86400000).toISOString(),
   });
 
   const ch = (id: string, courseId: string, title: string, sort: number) => ({ id, course_id: courseId, title, sort_order: sort });
@@ -47,22 +48,64 @@ export function getSeedData() {
   const chapterDefs: { id: string; courseId: string; title: string; lessons: { title: string; content: string; duration: number }[] }[] = [
     // HTML Dasar
     { id: "ch1-1", courseId: "c1", title: "Pengenalan HTML", lessons: [
-      { title: "Apa itu HTML?", content: t("HyperText Markup Language (HTML) adalah bahasa markup standar untuk membuat halaman web. HTML menggunakan tag untuk mendefinisikan elemen-elemen seperti heading, paragraf, link, dan gambar. Setiap halaman web yang kamu kunjungi menggunakan HTML sebagai fondasinya."), duration: 5 },
-      { title: "Struktur Dokumen HTML", content: t("Dokumen HTML memiliki struktur yang tetap: <!DOCTYPE html>, <html>, <head>, dan <body>. Bagian head berisi meta informasi seperti title dan charset, sementara body berisi konten yang ditampilkan ke user."), duration: 8 },
-      { title: "Menjalankan HTML Pertama", content: t("Untuk menjalankan HTML, cukup buat file berekstensi .html dan buka di browser. Kamu bisa menggunakan VS Code dengan extension Live Server untuk auto-reload setiap ada perubahan."), duration: 6 },
-      { title: "VS Code Setup untuk HTML", content: t("VS Code adalah editor paling populer untuk web development. Install extension seperti Live Server, Prettier, dan HTML CSS Support untuk produktivitas maksimal."), duration: 7 },
+      { title: "Apa Itu HTML", content: t("HyperText Markup Language (HTML) adalah bahasa markup standar untuk membuat halaman web. HTML menggunakan tag-tag khusus yang memberi tahu browser bagaimana cara menampilkan konten. Setiap website yang pernah kamu kunjungi pasti menggunakan HTML sebagai fondasi utamanya. HTML terdiri dari elemen-elemen yang dibungkus dalam tag, seperti <h1> untuk heading, <p> untuk paragraf, dan <a> untuk link."), duration: 6 },
+      { title: "Sejarah HTML", content: t("HTML pertama kali diciptakan oleh Tim Berners-Lee pada tahun 1991 sebagai solusi untuk berbagi dokumen ilmiah di antara rekan-rekannya di CERN. Versi HTML 2.0 dirilis sebagai standar pada 1995. HTML 3.2 (1997) menambahkan tabel dan scripting. HTML 4.01 (1999) menjadi standar utama. Pada 2014, HTML5 hadir dengan dukungan multimedia native, semantic elements, dan API modern."), duration: 5 },
+      { title: "Tools Belajar HTML", content: t("Untuk memulai belajar HTML, kamu hanya butuh dua hal: text editor dan browser. Rekomendasi tools: 1) VS Code - editor paling populer dengan banyak ekstensi. 2) Live Server - ekstensi VS Code untuk auto-reload. 3) Chrome DevTools - inspeksi elemen dan debugging. 4) CodePen - platform untuk menulis dan membagikan kode HTML/CSS/JS secara online. 5) MDN Web Docs - referensi utama untuk dokumentasi HTML."), duration: 4 },
+      { title: "Menjalankan File HTML", content: t("HTML adalah bahasa markup yang dijalankan di browser. Untuk menjalankan HTML: 1) Buat file dengan ekstensi .html menggunakan text editor. 2) Tulis kode HTML di dalamnya. 3) Klik dua kali file tersebut, atau buka via browser. Cara lebih nyaman: gunakan VS Code dengan ekstensi Live Server untuk auto-reload setiap kali file disimpan."), duration: 5 },
     ]},
-    { id: "ch1-2", courseId: "c1", title: "Tag Dasar HTML", lessons: [
-      { title: "Heading & Paragraf", content: t("Heading (<h1>-<h6>) digunakan untuk judul dan subjudul. Paragraf (<p>) untuk teks biasa. Gunakan heading secara hierarkis untuk SEO dan aksesibilitas yang baik."), duration: 6 },
-      { title: "Link & Navigasi", content: t("Tag <a> dengan atribut href digunakan untuk membuat hyperlink. Kamu bisa menghubungkan ke halaman internal, eksternal, atau bagian tertentu dalam halaman yang sama."), duration: 7 },
-      { title: "Image & Media", content: t("Tag <img> untuk menampilkan gambar dengan atribut src (source) dan alt (alternate text). Alt text penting untuk aksesibilitas dan SEO."), duration: 8 },
-      { title: "List & Tabel", content: t("HTML menyediakan ordered list (<ol>), unordered list (<ul>), dan definition list (<dl>). Tabel (<table>) digunakan untuk data tabular dengan baris dan kolom."), duration: 9 },
+    { id: "ch1-2", courseId: "c1", title: "Struktur Dasar HTML", lessons: [
+      { title: "Struktur HTML Dasar", content: t("Setiap dokumen HTML memiliki kerangka dasar yang tetap. Dimulai dengan deklarasi <!DOCTYPE html> yang memberi tahu browser versi HTML yang digunakan. Kemudian tag <html> sebagai root element. Di dalamnya terdapat dua cabang utama: <head> dan <body>. Struktur yang benar memastikan kompatibilitas dan SEO yang baik."), duration: 7 },
+      { title: "Head dan Body", content: t("Bagian <head> berisi metadata yang tidak tampil langsung di halaman, seperti judul halaman (title), karakter encoding (meta charset), link ke CSS, dan informasi untuk search engine. Bagian <body> berisi semua konten yang akan dilihat pengguna: teks, gambar, video, form, dan elemen visual lainnya."), duration: 6 },
+      { title: "Title dan Meta Tag", content: t("Tag <title> menentukan judul halaman yang tampil di tab browser dan hasil pencarian Google. Meta tag seperti <meta charset=\"UTF-8\"> memastikan huruf dan simbol ditampilkan dengan benar. <meta name=\"description\"> memberikan deskripsi yang tampil di hasil pencarian. <meta name=\"viewport\"> penting untuk tampilan mobile."), duration: 5 },
+      { title: "Komentar di HTML", content: t("Komentar HTML ditulis dengan <!-- teks komentar --> dan tidak akan tampil di halaman web. Komentar berguna untuk memberi catatan pada kode, menonaktifkan sementara bagian kode, menjelaskan fungsi suatu bagian, atau membagi kode menjadi seksi-seksi. Komentar hanya terlihat di source code."), duration: 4 },
     ]},
-    { id: "ch1-3", courseId: "c1", title: "Semantic HTML", lessons: [
-      { title: "Header & Navigation", content: t("Elemen semantic seperti <header>, <nav>, <main>, <section>, <article>, dan <footer> membuat struktur halaman lebih bermakna bagi browser dan search engine."), duration: 7 },
-      { title: "Section & Article", content: t("<section> untuk mengelompokkan konten berdasarkan tema. <article> untuk konten independen seperti blog post atau berita. Pilih elemen semantic yang tepat untuk struktur yang jelas."), duration: 6 },
-      { title: "Aside & Footer", content: t("<aside> untuk konten sampingan seperti sidebar. <footer> berisi informasi copyright, link navigasi, atau kontak. Layout semantic meningkatkan aksesibilitas."), duration: 5 },
-      { title: "Form & Input", content: t("Form (<form>) digunakan untuk input data user. Elemen input seperti <input>, <textarea>, <select>, dan <button> dengan berbagai tipe (text, email, password, dll)."), duration: 10 },
+    { id: "ch1-3", courseId: "c1", title: "Text dan Heading", lessons: [
+      { title: "Heading HTML", content: t("HTML menyediakan enam level heading dari <h1> (paling penting) hingga <h6>. <h1> digunakan untuk judul utama halaman, hanya boleh satu per halaman untuk SEO. <h2> untuk sub-judul, <h3> untuk sub-bagian, dan seterusnya. Heading membantu search engine memahami struktur konten."), duration: 6 },
+      { title: "Paragraph HTML", content: t("Tag <p> digunakan untuk membuat paragraf teks. Browser secara otomatis menambahkan margin di atas dan bawah setiap paragraf. Paragraf bisa berisi teks, gambar, link, atau elemen inline lainnya. Gunakan tag <br> untuk membuat baris baru dalam paragraf."), duration: 5 },
+      { title: "Bold, Italic, Underline", content: t("HTML memiliki beberapa tag untuk formatting teks: <b> atau <strong> untuk teks tebal (bold), <i> atau <em> untuk teks miring (italic), <u> untuk underline, <s> untuk coretan, <mark> untuk menyorot teks. <strong> dan <em> memiliki makna semantik, sementara <b> dan <i> hanya visual."), duration: 5 },
+      { title: "Line Break dan Horizontal Line", content: t("Tag <br> (line break) digunakan untuk memutus baris dalam teks tanpa memulai paragraf baru. Tag <hr> (horizontal rule) membuat garis horizontal yang menandakan pemisahan konten. Keduanya self-closing tag dan sering digunakan untuk memperbaiki struktur visual teks."), duration: 4 },
+    ]},
+    { id: "ch1-4", courseId: "c1", title: "Link dan Navigation", lessons: [
+      { title: "Membuat Link", content: t("Link dibuat dengan tag <a> (anchor) dan atribut href yang menentukan URL tujuan. Teks di antara tag pembuka dan penutup adalah teks yang tampil sebagai link. Link bisa menuju halaman web lain, file, alamat email (mailto:), atau nomor telepon (tel:). Gunakan teks yang deskriptif untuk aksesibilitas."), duration: 6 },
+      { title: "Link Internal dan External", content: t("Link internal menuju ke halaman dalam website yang sama menggunakan path relatif. Link external menuju website lain dengan URL lengkap. Atribut target=\"_blank\" membuka link di tab baru. Untuk SEO, link external sebaiknya menggunakan rel=\"noopener noreferrer\" untuk keamanan."), duration: 5 },
+      { title: "Navigation Menu", content: t("Navigation menu adalah kumpulan link yang memudahkan pengguna berpindah antar halaman. Struktur umum menggunakan <nav> (semantic element) yang berisi daftar link: <ul> atau <ol> dengan item <a>. Navigation bisa horizontal (navbar atas) atau vertikal (sidebar)."), duration: 7 },
+      { title: "Anchor Link", content: t("Anchor link memungkinkan pengguna melompat ke bagian tertentu dalam halaman. Buat target dengan atribut id: <h2 id=\"contact\">Kontak</h2>. Buat link dengan href=\"#contact\". Ini berguna untuk halaman panjang seperti dokumentasi, FAQ, atau landing page."), duration: 5 },
+    ]},
+    { id: "ch1-5", courseId: "c1", title: "Image dan Multimedia", lessons: [
+      { title: "Menampilkan Gambar", content: t("Tag <img> digunakan untuk menampilkan gambar. Atribut src menentukan path file gambar. Atribut alt memberikan teks alternatif yang muncul jika gambar gagal dimuat dan digunakan oleh screen reader. Gambar bisa berformat JPEG, PNG, GIF, WebP, atau SVG."), duration: 6 },
+      { title: "Mengatur Ukuran Gambar", content: t("Ukuran gambar diatur dengan atribut width dan height (dalam pixel) atau dengan CSS. CSS lebih fleksibel: img { max-width: 100%; height: auto; } membuat gambar menyesuaikan lebar container. Untuk gambar responsif, gunakan tag <picture> atau atribut srcset."), duration: 5 },
+      { title: "Audio HTML", content: t("Tag <audio> digunakan untuk menambahkan audio ke halaman web. Atribut controls menampilkan kontrol play/pause/volume. Dukungan format: MP3 (didukung semua browser), OGG, WAV. Gunakan atribut preload=\"metadata\" untuk memuat informasi file tanpa mengunduh semuanya."), duration: 5 },
+      { title: "Video HTML", content: t("Tag <video> menambahkan video ke halaman web. Atribut utama: controls, autoplay, loop, poster (gambar thumbnail). Format didukung: MP4 (H.264), WebM, OGG. Embed YouTube gunakan <iframe>. Selalu sediakan teks fallback untuk browser yang tidak mendukung."), duration: 6 },
+    ]},
+    { id: "ch1-6", courseId: "c1", title: "List HTML", lessons: [
+      { title: "Ordered List", content: t("Ordered list (daftar terurut) digunakan untuk item yang memiliki urutan penting. Tag <ol> membungkus item-item <li>. Atribut type mengubah gaya penomoran: 1 (angka), A (huruf), I (Romawi). Atribut start menentukan angka awal. Atribut reversed membalik urutan."), duration: 5 },
+      { title: "Unordered List", content: t("Unordered list (daftar tidak terurut) digunakan untuk item yang urutannya tidak penting. Tag <ul> membungkus item-item <li>. CSS list-style-type mengubah gaya bullet: disc, circle, square, atau none. Unordered list sering digunakan untuk navigasi menu."), duration: 5 },
+      { title: "Nested List", content: t("Nested list adalah daftar di dalam daftar, digunakan untuk hierarki data. Letakkan <ul> atau <ol> baru di dalam <li>. Nested list bisa dikombinasikan - <ol> di dalam <ul> atau sebaliknya. HTML secara otomatis mengindentasi level yang lebih dalam."), duration: 6 },
+      { title: "Menu dengan List", content: t("List HTML adalah fondasi untuk membuat menu navigasi. Struktur <ul> dengan <li> dan <a> di dalamnya. Dengan CSS, ubah tampilan horizontal: display: flex; list-style: none;. Dropdown menu menggunakan nested list."), duration: 5 },
+    ]},
+    { id: "ch1-7", courseId: "c1", title: "Table HTML", lessons: [
+      { title: "Struktur Table", content: t("Table HTML dibuat dengan tag <table>. Struktur dasar: <tr> (table row) untuk baris, <th> (table header) untuk sel header, <td> (table data) untuk sel data. Untuk tabel besar, gunakan <thead>, <tbody>, dan <tfoot> untuk struktur semantik."), duration: 7 },
+      { title: "Colspan dan Rowspan", content: t("Colspan menggabungkan beberapa kolom menjadi satu: <td colspan=\"2\">. Rowspan menggabungkan beberapa baris: <td rowspan=\"3\">. Berguna untuk header yang mencakup beberapa kolom. Perhatikan bahwa colspan/rowspan mengubah jumlah sel di baris/kolom terkait."), duration: 6 },
+      { title: "Styling Table Dasar", content: t("Table bisa di-style dengan CSS. Properti umum: border-collapse: collapse, border, padding, background-color, text-align. Gaya zebra-striping: CSS pseudo-class :nth-child(even) untuk warna bergantian per baris."), duration: 5 },
+      { title: "Membuat Table Data", content: t("Table data digunakan untuk menampilkan data terstruktur seperti daftar siswa, laporan keuangan, atau jadwal. Langkah: 1) Tentukan kolom. 2) Baris pertama sebagai header. 3) Baris berikutnya sebagai data. 4) Gunakan scope pada <th> untuk aksesibilitas."), duration: 7 },
+    ]},
+    { id: "ch1-8", courseId: "c1", title: "Form HTML", lessons: [
+      { title: "Input Text", content: t("Tag <input> adalah elemen form paling serbaguna. Atribut type menentukan jenis input: text, email, password, number, date, url. Atribut placeholder memberikan petunjuk. Atribut required memastikan input diisi. Setiap input sebaiknya memiliki <label> yang terasosiasi."), duration: 6 },
+      { title: "Textarea", content: t("Tag <textarea> digunakan untuk input teks multi-baris, seperti komentar atau pesan. Atribut rows dan cols mengatur ukuran awal, tapi sebaiknya diatur dengan CSS. CSS resize: none mencegah user mengubah ukuran textarea."), duration: 5 },
+      { title: "Radio dan Checkbox", content: t("Radio button (type=\"radio\") untuk pilihan satu dari beberapa opsi. Semua radio dalam grup harus memiliki name yang sama. Checkbox (type=\"checkbox\") untuk pilihan multiple atau boolean. Atribut checked menandai opsi default terpilih."), duration: 6 },
+      { title: "Submit Button", content: t("Tombol submit mengirim data form ke server. Dibuat dengan <button type=\"submit\"> atau <input type=\"submit\">. Atribut action pada <form> menentukan URL tujuan data. Atribut method menentukan HTTP method: GET atau POST."), duration: 5 },
+    ]},
+    { id: "ch1-9", courseId: "c1", title: "Semantic HTML", lessons: [
+      { title: "Semantic Element", content: t("Semantic HTML menggunakan tag yang memiliki makna: <header>, <nav>, <main>, <section>, <article>, <aside>, <footer>. Keuntungan: SEO lebih baik, aksesibilitas meningkat, kode lebih mudah dibaca, dan membantu screen reader memahami struktur halaman."), duration: 7 },
+      { title: "Layout Website Modern", content: t("Layout modern menggunakan semantic elements dan CSS Flexbox/Grid. Struktur umum: <header> untuk logo + navigasi, <main> untuk konten utama, <aside> untuk sidebar, <footer> untuk copyright. Hindari penggunaan <div> berlebihan untuk layout."), duration: 8 },
+      { title: "Accessibility Dasar", content: t("Accessibility memastikan website bisa digunakan oleh semua orang. Praktik dasar: gunakan semantic HTML, tambahkan alt text pada gambar, gunakan heading hierarkis, pastikan kontras warna cukup, buat form dengan <label>, dukung navigasi keyboard."), duration: 6 },
+      { title: "Best Practice HTML", content: t("Best practice HTML: 1) Gunakan <!DOCTYPE html>. 2) Lowercase untuk tag dan atribut. 3) Tutup semua tag. 4) Gunakan kutip pada nilai atribut. 5) Indentasi rapi. 6) Prioritaskan semantic elements. 7) Validasi kode. 8) Optimalkan performa."), duration: 6 },
+    ]},
+    { id: "ch1-10", courseId: "c1", title: "Mini Project", lessons: [
+      { title: "Membuat Biodata Website", content: t("Project pertama: buat halaman biodata pribadi menggunakan HTML. Struktur: header dengan foto profil dan nama, section tentang saya, pendidikan, pengalaman, dan kontak. Gunakan heading, paragraf, gambar, list, dan link. Project ini melatih kemampuan membuat struktur halaman HTML."), duration: 10 },
+      { title: "Membuat Landing Page", content: t("Project kedua: buat landing page sederhana untuk sebuah produk. Struktur: nav dengan menu, hero section, features section, testimonials, pricing table, contact form, dan footer. Landing page harus memiliki satu halaman dengan anchor link navigasi."), duration: 12 },
+      { title: "Membuat Portfolio HTML", content: t("Project ketiga: buat halaman portfolio. Struktur: navbar fixed, hero section, about section, skills section, projects section, blog section, contact section, dan footer. Gunakan table untuk timeline pengalaman. Pastikan semua link dan navigasi berfungsi."), duration: 12 },
+      { title: "Final Review", content: t("Review akhir dari semua materi HTML. Uji pemahaman: struktur dokumen HTML, perbedaan div dan section, kapan menggunakan ol vs ul, fungsi atribut alt, cara membuat anchor link, jenis input form, colspan/rowspan. Pastikan bisa menjawab semua sebelum lanjut ke CSS."), duration: 8 },
     ]},
     // CSS Modern
     { id: "ch2-1", courseId: "c2", title: "CSS Dasar", lessons: [

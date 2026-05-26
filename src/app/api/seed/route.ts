@@ -60,6 +60,7 @@ export async function POST() {
         type: c.type,
         status: c.status,
         category_id: catMap.get(c.category_id),
+        sort_order: c.sort_order,
         created_at: c.created_at,
       }))
     );
