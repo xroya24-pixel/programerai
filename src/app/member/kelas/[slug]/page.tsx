@@ -15,6 +15,57 @@ interface Lesson {
   duration: number;
   sort_order: number;
   chapter_id: string;
+  content?: string;
+}
+
+function renderTiptap(json: string): string {
+  try {
+    const doc = JSON.parse(json);
+    return (doc.content ?? []).map((node: any): string => {
+      if (node.type === "paragraph") {
+        const text = (node.content ?? []).map((n: any) => {
+          let t = n.text ?? "";
+          if (n.marks) {
+            n.marks.forEach((m: any) => {
+              if (m.type === "bold") t = `<strong>${t}</strong>`;
+              if (m.type === "italic") t = `<em>${t}</em>`;
+              if (m.type === "code") t = `<code>${t}</code>`;
+              if (m.type === "link") t = `<a href="${m.attrs?.href ?? "#"}" target="_blank">${t}</a>`;
+            });
+          }
+          return t;
+        }).join("");
+        return `<p>${text}</p>`;
+      }
+      if (node.type === "heading") {
+        const tag = `h${node.attrs?.level ?? 2}`;
+        const text = (node.content ?? []).map((n: any) => n.text ?? "").join("");
+        return `<${tag}>${text}</${tag}>`;
+      }
+      if (node.type === "codeBlock") {
+        return `<pre><code>${(node.content ?? []).map((n: any) => n.text ?? "").join("")}</code></pre>`;
+      }
+      if (node.type === "bulletList") {
+        const items = (node.content ?? []).map((n: any) => {
+          const text = (n.content ?? []).map((c: any) => (c.content ?? []).map((t: any) => t.text ?? "").join("")).join("");
+          return `<li>${text}</li>`;
+        }).join("");
+        return `<ul>${items}</ul>`;
+      }
+      if (node.type === "orderedList") {
+        const items = (node.content ?? []).map((n: any) => {
+          const text = (n.content ?? []).map((c: any) => (c.content ?? []).map((t: any) => t.text ?? "").join("")).join("");
+          return `<li>${text}</li>`;
+        }).join("");
+        return `<ol>${items}</ol>`;
+      }
+      if (node.type === "youtube") {
+        const id = node.attrs?.id ?? "";
+        return `<div class="aspect-video rounded-xl overflow-hidden my-4"><iframe src="https://www.youtube.com/embed/${id}" frameborder="0" allowfullscreen class="w-full h-full"></iframe></div>`;
+      }
+      return "";
+    }).join("");
+  } catch { return ""; }
 }
 
 interface Chapter {
@@ -197,20 +248,16 @@ export default function LessonPage() {
                 <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> {currentLesson.duration} menit</span>
               </div>
             )}
-            <div className="prose-custom space-y-6">
-              <p className="text-muted-foreground leading-[1.8] text-[15px]">
-                {course.type === "premium"
-                  ? "Konten premium ini berisi materi mendalam yang hanya tersedia untuk member Premium. Mulai dari studi kasus nyata hingga best practice industri."
-                  : `Selamat datang di ${course.title}! Materi ini akan memandu Anda dari dasar hingga mahir.`}
-              </p>
-              {course.type === "premium" && (
-                <div className="rounded-xl bg-gradient-to-br from-primary/[0.04] to-transparent border border-primary/10 p-5">
-                  <div className="flex items-center gap-3 mb-2">
-                    <Play className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-medium">Materi Premium</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground/70">Akses penuh dengan upgrade ke Premium.</p>
-                </div>
+            <div className="space-y-6">
+              {currentLesson?.content ? (
+                <div className="prose-custom leading-[1.8] text-[15px] text-foreground [&_p]:mb-4 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mt-8 [&_h1]:mb-4 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:mt-6 [&_h2]:mb-3 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:mt-5 [&_h3]:mb-2 [&_pre]:bg-[#0F172A] [&_pre]:rounded-xl [&_pre]:p-4 [&_pre]:my-4 [&_pre]:overflow-x-auto [&_code]:text-sm [&_code]:font-mono [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-4 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-4 [&_li]:mb-1 [&_a]:text-primary [&_a]:underline [&_a:hover]:opacity-80 [&_iframe]:w-full [&_iframe]:aspect-video [&_iframe]:rounded-xl
+" dangerouslySetInnerHTML={{ __html: renderTiptap(currentLesson.content) }} />
+              ) : (
+                <p className="text-muted-foreground/60 leading-[1.8] text-[15px]">
+                  {course.type === "premium"
+                    ? "Konten premium ini berisi materi mendalam yang hanya tersedia untuk member Premium. Mulai dari studi kasus nyata hingga best practice industri."
+                    : `Selamat datang di ${course.title}! Materi ini akan memandu Anda dari dasar hingga mahir.`}
+                </p>
               )}
             </div>
           </article>
