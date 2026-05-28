@@ -28,9 +28,9 @@ export default function AdminSupportPage() {
   const [search, setSearch] = useState("");
   const [adminId, setAdminId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const channelRef = useRef<any>(null);
   const supabase = createClient();
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const msgSetRef = useRef<Set<string>>(new Set());
+  const lastMsgCountRef = useRef(0);
 
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }); }, [messages]);
 
@@ -62,50 +62,66 @@ export default function AdminSupportPage() {
     init();
   }, []);
 
-  // Load messages when conversation selected + Realtime Broadcast
+  // Realtime Broadcast + Polling fallback
   useEffect(() => {
     if (!selected || !adminId) return;
     let cancelled = false;
 
-    const load = async () => {
+    const loadMessages = async () => {
       const { data: msgs } = await supabase.from("messages")
         .select("*").eq("conversation_id", selected.id).order("created_at", { ascending: true });
       if (cancelled) return;
-      setMessages((msgs ?? []) as Message[]);
+      const list = (msgs ?? []) as Message[];
+      if (list.length !== lastMsgCountRef.current) {
+        msgSetRef.current = new Set(list.map(m => m.id));
+        setMessages(list);
+        lastMsgCountRef.current = list.length;
 
-      const unreadIds = (msgs ?? []).filter(m => m.sender_id !== adminId && !m.read_at).map(m => m.id);
-      if (unreadIds.length > 0) {
-        await supabase.from("messages").update({ read_at: new Date().toISOString() }).in("id", unreadIds);
-        setConversations(prev => prev.map(c => c.id === selected.id ? { ...c, unread: 0 } : c));
-      }
-      if (!selected.admin_id) {
-        await supabase.from("conversations").update({ admin_id: adminId }).eq("id", selected.id);
-        setSelected(prev => prev ? { ...prev, admin_id: adminId } : null);
+        const unreadIds = list.filter(m => m.sender_id !== adminId && !m.read_at).map(m => m.id);
+        if (unreadIds.length > 0) {
+          await supabase.from("messages").update({ read_at: new Date().toISOString() }).in("id", unreadIds);
+          setConversations(prev => prev.map(c => c.id === selected.id ? { ...c, unread: 0 } : c));
+        }
       }
     };
-    load();
 
-    // Subscribe to Broadcast channel
-    const channel = supabase.channel(`chat:${selected.id}`);
+    loadMessages();
+
+    if (!selected.admin_id) {
+      supabase.from("conversations").update({ admin_id: adminId }).eq("id", selected.id);
+      setSelected(prev => prev ? { ...prev, admin_id: adminId } : null);
+    }
+
+    // Broadcast channel
+    const channel = supabase.channel(`chat-${selected.id}`);
     channel.on("broadcast", { event: "message" }, (payload: any) => {
       if (cancelled) return;
-      setMessages(prev => prev.some(m => m.id === payload.payload.id) ? prev : [...prev, payload.payload]);
+      const msg = payload.payload as Message;
+      if (!msgSetRef.current.has(msg.id)) {
+        msgSetRef.current.add(msg.id);
+        setMessages(prev => [...prev, msg]);
+      }
     });
     channel.subscribe();
-    channelRef.current = channel;
 
-    return () => { cancelled = true; supabase.removeChannel(channel); };
-  }, [selected?.id, adminId]);
-
-  // Listen for new conversations
-  useEffect(() => {
-    const channel = supabase.channel("admin-convs");
-    channel.on("broadcast", { event: "new-conversation" }, (payload: any) => {
+    // Refresh new conversations
+    const convsChan = supabase.channel("admin-convs-global");
+    convsChan.on("broadcast", { event: "new-conversation" }, (payload: any) => {
+      if (cancelled) return;
       setConversations(prev => prev.some(c => c.id === payload.payload.id) ? prev : [payload.payload, ...prev]);
     });
-    channel.subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, []);
+    convsChan.subscribe();
+
+    // Polling fallback every 2 seconds
+    const interval = setInterval(loadMessages, 2000);
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+      supabase.removeChannel(convsChan);
+      clearInterval(interval);
+    };
+  }, [selected?.id, adminId]);
 
   const handleSend = async () => {
     if (!input.trim() || !selected || !adminId) return;
@@ -119,29 +135,26 @@ export default function AdminSupportPage() {
       sender_id: adminId,
       content,
       created_at: new Date().toISOString(),
-      read_at: null,
-      sender_name: "Admin",
+      read_at: new Date().toISOString(),
     };
 
+    msgSetRef.current.add(msg.id);
     setMessages(prev => [...prev, msg]);
 
     await supabase.from("messages").insert({
       id: msg.id, conversation_id: msg.conversation_id, sender_id: msg.sender_id, content: msg.content,
     });
 
-    // Broadcast to everyone
-    const ch = channelRef.current ?? supabase.channel(`chat:${selected.id}`);
-    if (!channelRef.current) ch.subscribe();
+    const ch = supabase.channel(`chat-${selected.id}`);
+    ch.subscribe();
     ch.send({ type: "broadcast", event: "message", payload: msg });
 
-    // Update conversation list
     setConversations(prev => {
       const updated = prev.filter(c => c.id !== selected.id);
       return [{ ...selected, last_message: content, updated_at: msg.created_at }, ...updated];
     });
 
     setSending(false);
-    inputRef.current?.focus();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -160,7 +173,6 @@ export default function AdminSupportPage() {
 
   return (
     <div className="flex h-[calc(100vh-7rem)] -m-6 md:-m-8">
-      {/* Conversation List */}
       <div className={cn("w-[280px] shrink-0 border-r border-white/[0.04] flex flex-col bg-[#0F172A]/50", selected && "hidden md:flex")}>
         <div className="p-3 border-b border-white/[0.04]">
           <div className="flex items-center gap-2 mb-2">
@@ -199,7 +211,6 @@ export default function AdminSupportPage() {
         </div>
       </div>
 
-      {/* Chat Area */}
       <div className={cn("flex-1 flex flex-col", !selected && "hidden md:flex")}>
         {!selected ? (
           <div className="flex-1 flex items-center justify-center">
@@ -257,7 +268,7 @@ export default function AdminSupportPage() {
 
             <div className="border-t border-white/[0.04] p-3">
               <div className="flex items-end gap-2">
-                <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
+                <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
                   rows={1} placeholder="Ketik balasan..."
                   className="flex-1 max-h-32 rounded-xl bg-white/[0.04] border border-white/[0.06] px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary/30 resize-none" />
                 <button onClick={handleSend} disabled={!input.trim() || sending}

@@ -5,16 +5,15 @@ import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { useUserRole } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
-import { Send, Loader2, MessageCircle, Crown, User, ChevronLeft, CheckCheck, Clock } from "lucide-react";
+import { Send, Loader2, MessageCircle, Crown, CheckCheck, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Message {
   id: string; conversation_id: string; sender_id: string; content: string; created_at: string; read_at: string | null;
   sender_name?: string;
 }
-
 interface Conversation {
-  id: string; user_id: string; admin_id: string | null; title: string; status: string; created_at: string; updated_at: string;
+  id: string; user_id: string; admin_id: string | null; title: string; status: string;
 }
 
 export default function MemberChatPage() {
@@ -27,19 +26,24 @@ export default function MemberChatPage() {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const channelRef = useRef<any>(null);
   const supabase = createClient();
+  const msgSetRef = useRef<Set<string>>(new Set());
+  const lastCountRef = useRef(0);
+  const convRef = useRef<Conversation | null>(null);
+  const uidRef = useRef<string | null>(null);
 
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }); }, [messages]);
 
-  // Fetch or create conversation
   useEffect(() => {
     if (roleLoading || (role !== "premium" && role !== "admin" && role !== "super_admin")) return;
+    let cancelled = false;
+
     const init = async () => {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setLoading(false); return; }
+      if (!user || cancelled) { setLoading(false); return; }
       setUserId(user.id);
+      uidRef.current = user.id;
 
       let { data: conv } = await supabase.from("conversations").select("*")
         .eq("user_id", user.id).order("updated_at", { ascending: false }).limit(1).maybeSingle();
@@ -52,48 +56,52 @@ export default function MemberChatPage() {
         conv = newConv;
       }
 
-      if (conv) {
+      if (conv && !cancelled) {
         setConversation(conv as unknown as Conversation);
-        const { data: msgs } = await supabase.from("messages")
-          .select("*").eq("conversation_id", conv.id).order("created_at", { ascending: true });
-        setMessages((msgs ?? []) as Message[]);
+        convRef.current = conv as unknown as Conversation;
+        await loadMessages(conv.id, user.id);
+      }
+      if (!cancelled) setLoading(false);
+    };
 
-        const unreadIds = (msgs ?? []).filter(m => m.sender_id !== user.id && !m.read_at).map(m => m.id);
+    const loadMessages = async (convId: string, uid: string) => {
+      const { data: msgs } = await supabase.from("messages")
+        .select("*").eq("conversation_id", convId).order("created_at", { ascending: true });
+      if (cancelled) return;
+      const list = (msgs ?? []) as Message[];
+      if (list.length !== lastCountRef.current) {
+        msgSetRef.current = new Set(list.map(m => m.id));
+        setMessages(list);
+        lastCountRef.current = list.length;
+
+        const unreadIds = list.filter(m => m.sender_id !== uid && !m.read_at).map(m => m.id);
         if (unreadIds.length > 0) {
           await supabase.from("messages").update({ read_at: new Date().toISOString() }).in("id", unreadIds);
         }
-
-        // Subscribe to Broadcast channel
-        const channel = supabase.channel(`chat:${conv.id}`);
-        channel.on("broadcast", { event: "message" }, (payload: any) => {
-          setMessages(prev => prev.some(m => m.id === payload.payload.id) ? prev : [...prev, payload.payload]);
-        });
-        channel.subscribe();
-        channelRef.current = channel;
-
-        // Broadcast notification to admin about new conversation (only if first message)
-        const { count } = await supabase.from("messages").select("id", { count: "exact", head: true }).eq("conversation_id", conv.id);
-        if (count === 0) {
-          const { data: prof } = await supabase.from("profiles").select("full_name, email").eq("id", user.id).single();
-          const adminChan = supabase.channel("admin-convs");
-          adminChan.subscribe();
-          adminChan.send({
-            type: "broadcast", event: "new-conversation", payload: {
-              id: conv.id, user_id: user.id, admin_id: null, title: conv.title, status: conv.status,
-              created_at: conv.created_at, updated_at: conv.updated_at,
-              profiles: prof,
-            },
-          });
-        }
       }
-      setLoading(false);
+
+      // Notify admin about new conversation
+      if (list.length === 0) {
+        const { data: prof } = await supabase.from("profiles").select("full_name, email").eq("id", uid).single();
+        try {
+          const ch = supabase.channel("admin-convs-global");
+          ch.subscribe();
+          ch.send({ type: "broadcast", event: "new-conversation", payload: { id: convId, user_id: uid, title: "Chat", profiles: prof } });
+        } catch {}
+      }
     };
+
     init();
 
-    return () => {
-      if (channelRef.current) supabase.removeChannel(channelRef.current);
-    };
-  }, [roleLoading, role]);
+    // Polling fallback
+    const interval = setInterval(async () => {
+      const c = convRef.current;
+      const u = uidRef.current;
+      if (c && u) await loadMessages(c.id, u);
+    }, 2000);
+
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [roleLoading, role, conversation?.id]);
 
   const handleSend = async () => {
     if (!input.trim() || !conversation || !userId) return;
@@ -108,18 +116,20 @@ export default function MemberChatPage() {
       content,
       created_at: new Date().toISOString(),
       read_at: null,
-      sender_name: "Kamu",
     };
 
+    msgSetRef.current.add(msg.id);
     setMessages(prev => [...prev, msg]);
 
     await supabase.from("messages").insert({
       id: msg.id, conversation_id: msg.conversation_id, sender_id: msg.sender_id, content: msg.content,
     });
 
-    const ch = channelRef.current ?? supabase.channel(`chat:${conversation.id}`);
-    if (!channelRef.current) ch.subscribe();
-    ch.send({ type: "broadcast", event: "message", payload: msg });
+    try {
+      const ch = supabase.channel(`chat-${conversation.id}`);
+      ch.subscribe();
+      ch.send({ type: "broadcast", event: "message", payload: msg });
+    } catch {}
 
     setSending(false);
   };
