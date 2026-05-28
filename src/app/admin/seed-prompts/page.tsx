@@ -4,19 +4,19 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Sparkles, CheckCircle2, AlertCircle, Loader2, Crown } from "lucide-react";
 
-export default function SeedPremiumPage() {
+export default function SeedPromptsPage() {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-  const [result, setResult] = useState<string>("");
+  const [result, setResult] = useState("");
 
   const handleSeed = async () => {
     setStatus("loading");
     setResult("");
     try {
-      const res = await fetch("/api/seed-premium-prompts", { method: "POST" });
+      const res = await fetch("/api/seed-prompts", { method: "POST" });
       const data = await res.json();
       if (data.success) {
         setStatus("success");
-        setResult(`${data.chapters} chapter dan ${data.lessons} lesson berhasil dibuat!`);
+        setResult(`${data.chapters} materi dan ${data.lessons} prompt berhasil dibuat dalam Bahasa Indonesia!`);
       } else {
         setStatus("error");
         setResult(data.error || "Gagal");
@@ -30,8 +30,8 @@ export default function SeedPremiumPage() {
   return (
     <div className="space-y-6">
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-        <h1 className="text-2xl font-bold tracking-tight">Seed Premium Prompts</h1>
-        <p className="text-muted-foreground text-sm mt-1">Buat course &quot;Kumpulan Prompt Spesifik Premium&quot; dengan 50 prompt AI image generator.</p>
+        <h1 className="text-2xl font-bold tracking-tight">Seed Prompt Premium</h1>
+        <p className="text-muted-foreground text-sm mt-1">Buat course &quot;Kumpulan Prompt Spesifik Premium&quot; dengan 10 prompt AI image generator full Bahasa Indonesia.</p>
       </motion.div>
 
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
@@ -43,11 +43,11 @@ export default function SeedPremiumPage() {
             </div>
             <h2 className="text-lg font-bold mb-2">Siap di-Seed</h2>
             <p className="text-sm text-muted-foreground/70 mb-6">
-              Course ini berisi 25 chapter dengan total 50 prompt AI premium. Klik tombol di bawah untuk memulai.
+              Course akan berisi 10 materi dengan total 10 prompt AI premium dalam Bahasa Indonesia. Klik tombol di bawah untuk memulai.
             </p>
             <button onClick={handleSeed}
               className="inline-flex items-center gap-2 h-11 px-6 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-sm font-semibold transition-all shadow-[0_0_20px_rgba(99,102,241,0.2)]">
-              <Crown className="w-4 h-4" /> Seed Premium Prompts
+              <Crown className="w-4 h-4" /> Seed Prompt Premium
             </button>
           </div>
         )}
@@ -55,7 +55,7 @@ export default function SeedPremiumPage() {
         {status === "loading" && (
           <div className="text-center">
             <Loader2 className="w-8 h-8 text-primary animate-spin mx-auto mb-4" />
-            <p className="text-sm text-muted-foreground">Membuat course dan 50 prompt...</p>
+            <p className="text-sm text-muted-foreground">Membuat course dan prompt...</p>
           </div>
         )}
 

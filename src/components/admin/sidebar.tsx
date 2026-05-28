@@ -49,7 +49,7 @@ const sections = [
     items: [
       { label: "Settings", href: "/admin/settings", icon: Settings },
       { label: "Seed Data", href: "/admin/seed", icon: Sprout },
-      { label: "Seed Prompts", href: "/admin/seed-premium", icon: Sparkles },
+      { label: "Seed Prompts", href: "/admin/seed-prompts", icon: Sparkles },
     ],
   },
 ];
