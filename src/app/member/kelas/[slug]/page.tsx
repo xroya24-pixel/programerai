@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
-import { ChevronLeft, CheckCircle2, Circle, Play, Clock, ArrowRight, Crown, Lock, BookOpen } from "lucide-react";
+import { ChevronLeft, CheckCircle2, Circle, Play, Clock, ArrowRight, Crown, Lock, BookOpen, Bookmark, BookmarkCheck } from "lucide-react";
 import { useUserRole, upgradeToPremium } from "@/hooks/use-auth";
 import { createClient } from "@/lib/supabase/client";
 
@@ -100,6 +100,8 @@ export default function LessonPage() {
   const [course, setCourse] = useState<CourseData | null>(null);
   const [progress, setProgress] = useState<Set<string>>(new Set());
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
+  const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
+  const [completing, setCompleting] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -125,11 +127,12 @@ export default function LessonPage() {
       }
 
       if (user?.user) {
-        const { data: progData } = await supabase
-          .from("lesson_progress")
-          .select("lesson_id")
-          .eq("user_id", user.user.id);
-        setProgress(new Set((progData ?? []).map((p: any) => p.lesson_id)));
+        const [progRes, bmRes] = await Promise.all([
+          supabase.from("lesson_progress").select("lesson_id").eq("user_id", user.user.id),
+          supabase.from("bookmarks").select("lesson_id").eq("user_id", user.user.id),
+        ]);
+        setProgress(new Set((progRes.data ?? []).map((p: any) => p.lesson_id)));
+        setBookmarks(new Set((bmRes.data ?? []).map((b: any) => b.lesson_id)));
       }
 
       setLoading(false);
@@ -141,6 +144,63 @@ export default function LessonPage() {
     setUpgrading(true);
     await upgradeToPremium();
     setUpgrading(false);
+  };
+
+  const handleToggleComplete = async (lessonId: string) => {
+    setCompleting(true);
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || !course) { setCompleting(false); return; }
+
+    const isCompleted = progress.has(lessonId);
+
+    if (isCompleted) {
+      await supabase.from("lesson_progress").delete().eq("user_id", user.id).eq("lesson_id", lessonId);
+    } else {
+      await supabase.from("lesson_progress").upsert({
+        user_id: user.id,
+        lesson_id: lessonId,
+        completed: true,
+        completed_at: new Date().toISOString(),
+      }, { onConflict: "user_id,lesson_id" });
+    }
+
+    const newProgress = new Set(progress);
+    if (isCompleted) newProgress.delete(lessonId);
+    else newProgress.add(lessonId);
+    setProgress(newProgress);
+
+    const allCourseLessons = course?.chapters.flatMap(c => c.lessons) ?? [];
+    const newCompleted = newProgress.size;
+    const total = allCourseLessons.length;
+    const pct = total > 0 ? Math.round((newCompleted / total) * 100) : 0;
+
+    await supabase.from("enrollments").upsert({
+      user_id: user.id,
+      course_id: course.id,
+      progress: pct,
+    }, { onConflict: "user_id,course_id" });
+
+    setCompleting(false);
+  };
+
+  const handleToggleBookmark = async (lessonId: string) => {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const isBookmarked = bookmarks.has(lessonId);
+
+    if (isBookmarked) {
+      await supabase.from("bookmarks").delete().eq("user_id", user.id).eq("lesson_id", lessonId);
+    } else {
+      await supabase.from("bookmarks").insert({ user_id: user.id, lesson_id: lessonId });
+    }
+
+    const newBookmarks = new Set(bookmarks);
+    if (isBookmarked) newBookmarks.delete(lessonId);
+    else newBookmarks.add(lessonId);
+    setBookmarks(newBookmarks);
   };
 
   const allLessons = course?.chapters.flatMap(c => c.lessons) ?? [];
@@ -248,7 +308,19 @@ export default function LessonPage() {
               <span className="bg-white/[0.05] rounded-md px-2 py-0.5">{course.level}</span>
               {course.type === "premium" && <span className="bg-primary/10 text-primary rounded-md px-2 py-0.5 flex items-center gap-1"><Crown className="w-3 h-3" /> Premium</span>}
             </div>
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-tight mb-4">{currentLesson?.title ?? course.title}</h1>
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-tight">{currentLesson?.title ?? course.title}</h1>
+              {currentLesson && (
+                <button onClick={() => handleToggleBookmark(currentLesson.id)}
+                  className="shrink-0 flex items-center gap-1.5 h-8 px-3 rounded-lg border border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.06] transition-all text-xs whitespace-nowrap">
+                  {bookmarks.has(currentLesson.id) ? (
+                    <><BookmarkCheck className="w-3.5 h-3.5 text-primary" /> Tersimpan</>
+                  ) : (
+                    <><Bookmark className="w-3.5 h-3.5 text-muted-foreground/60" /> Simpan</>
+                  )}
+                </button>
+              )}
+            </div>
             {currentLesson && currentLesson.duration > 0 && (
               <div className="flex items-center gap-4 text-xs text-muted-foreground mb-10">
                 <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> {currentLesson.duration} menit</span>
@@ -266,6 +338,23 @@ export default function LessonPage() {
                 </p>
               )}
             </div>
+            {currentLesson && (
+              <div className="flex items-center gap-3 mt-10 pt-8 border-t border-white/[0.06]">
+                <button onClick={() => handleToggleComplete(currentLesson.id)} disabled={completing}
+                  className="inline-flex items-center gap-2 h-10 px-6 rounded-xl font-medium text-sm transition-all disabled:opacity-50 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20">
+                  {progress.has(currentLesson.id) ? (
+                    <><CheckCircle2 className="w-4 h-4" /> Selesai</>
+                  ) : (
+                    <><Circle className="w-4 h-4" /> Tandai Selesai</>
+                  )}
+                </button>
+                <span className="text-xs text-muted-foreground/50">
+                  {progress.has(currentLesson.id)
+                    ? "Materi ini sudah ditandai selesai. Klik untuk batalkan."
+                    : "Tandai materi ini sebagai selesai."}
+                </span>
+              </div>
+            )}
           </article>
         </div>
       </motion.div>

@@ -28,10 +28,24 @@ export default function DashboardPage() {
           .limit(5),
       ]);
 
+      let totalMinutes = 0;
+      const enrolledCourseIds = (coursesRes.data ?? []).map((e: any) => e.course_id);
+      if (enrolledCourseIds.length > 0) {
+        const { data: chData } = await supabase
+          .from("chapters")
+          .select("id, lessons(duration)")
+          .in("course_id", enrolledCourseIds);
+        for (const ch of chData ?? []) {
+          for (const lesson of (ch as any).lessons ?? []) {
+            totalMinutes += lesson.duration ?? 0;
+          }
+        }
+      }
+
       setStats({
         enrolled: enrollRes.count ?? 0,
         completed: progressRes.count ?? 0,
-        hours: Math.floor((progressRes.count ?? 0) * 0.5),
+        hours: Math.round(totalMinutes / 60),
         bookmarks: bookmarkRes.count ?? 0,
       });
 
@@ -40,7 +54,7 @@ export default function DashboardPage() {
         slug: e.courses?.slug ?? "",
         level: e.courses?.level ?? "",
         type: e.courses?.type ?? "free",
-        progress: Math.floor(Math.random() * 100),
+        progress: e.progress ?? 0,
         enrolled_at: e.created_at,
       })));
       setLoading(false);
