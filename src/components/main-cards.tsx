@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Monitor, Server, Brain, Container, Code2, Database, Globe, Smartphone } from "lucide-react";
+import { Monitor, Server, Brain, Container, Code2, Database, Globe, Smartphone, Sparkles, Zap, MessageSquare, Bot } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 
@@ -12,10 +12,6 @@ const colorMap = [
   { gradient: "from-emerald-500/20 to-cyan-500/10", border: "hover:border-emerald-500/30", iconBg: "bg-emerald-500/10 border-emerald-500/20", iconColor: "text-emerald-400" },
   { gradient: "from-purple-500/20 to-pink-500/10", border: "hover:border-purple-500/30", iconBg: "bg-purple-500/10 border-purple-500/20", iconColor: "text-purple-400" },
   { gradient: "from-amber-500/20 to-orange-500/10", border: "hover:border-amber-500/30", iconBg: "bg-amber-500/10 border-amber-500/20", iconColor: "text-amber-400" },
-  { gradient: "from-rose-500/20 to-pink-500/10", border: "hover:border-rose-500/30", iconBg: "bg-rose-500/10 border-rose-500/20", iconColor: "text-rose-400" },
-  { gradient: "from-cyan-500/20 to-blue-500/10", border: "hover:border-cyan-500/30", iconBg: "bg-cyan-500/10 border-cyan-500/20", iconColor: "text-cyan-400" },
-  { gradient: "from-violet-500/20 to-purple-500/10", border: "hover:border-violet-500/30", iconBg: "bg-violet-500/10 border-violet-500/20", iconColor: "text-violet-400" },
-  { gradient: "from-orange-500/20 to-amber-500/10", border: "hover:border-orange-500/30", iconBg: "bg-orange-500/10 border-orange-500/20", iconColor: "text-orange-400" },
 ];
 
 const defaultItems: Record<string, string[]> = {
@@ -23,10 +19,6 @@ const defaultItems: Record<string, string[]> = {
   Server: ["Node.js", "Database", "API"],
   Brain: ["OpenAI", "Automation", "AI"],
   Container: ["Docker", "VPS", "CI/CD"],
-  Code2: ["Git", "Testing", "Tools"],
-  Database: ["SQL", "NoSQL", "ORM"],
-  Globe: ["DNS", "HTTP", "Security"],
-  Smartphone: ["iOS", "Android", "PWA"],
 };
 
 const defaultCards = [
@@ -36,12 +28,40 @@ const defaultCards = [
   { title: "DevOps & Deploy", icon: "Container", description: "Deploy aplikasi dengan confidence.", total_courses: 15 },
 ];
 
+const aiTools = [
+  { name: "ChatGPT", color: "from-emerald-500/20 to-teal-500/10", border: "border-emerald-500/20", icon: "💬", messages: ["Jelaskan konsep DOM dalam JavaScript", "DOM adalah Document Object Model..."] },
+  { name: "Claude", color: "from-purple-500/20 to-pink-500/10", border: "border-purple-500/20", icon: "🤖", messages: ["Bantu saya debug kode React", "Tentu, saya lihat ada issue di useEffect..."] },
+  { name: "Gemini", color: "from-blue-500/20 to-cyan-500/10", border: "border-blue-500/20", icon: "✨", messages: ["Optimasi query SQL ini dong", "Bisa, pakai indexing pada kolom..."] },
+  { name: "Copilot", color: "from-orange-500/20 to-amber-500/10", border: "border-orange-500/20", icon: "🧠", messages: ["Generate fungsi sorting", "Berikut implementasi quicksort..."] },
+];
+
+function TypeWriter({ text, delay = 30 }: { text: string; delay?: number }) {
+  const [displayed, setDisplayed] = useState("");
+  const [i, setI] = useState(0);
+
+  useEffect(() => { setDisplayed(""); setI(0); }, [text]);
+
+  useEffect(() => {
+    if (i >= text.length) return;
+    const t = setTimeout(() => { setDisplayed(text.slice(0, i + 1)); setI(i + 1); }, delay);
+    return () => clearTimeout(t);
+  }, [i, text, delay]);
+
+  return <span>{displayed}{i < text.length ? <span className="animate-pulse">|</span> : null}</span>;
+}
+
 export function MainCards() {
   const [categories, setCategories] = useState<any[]>([]);
+  const [activeAi, setActiveAi] = useState(0);
 
   useEffect(() => {
     createClient().from("categories").select("*, courses(id)").order("sort_order", { ascending: true })
       .then(({ data }) => setCategories((data ?? []).map((c: any) => ({ ...c, total_courses: c.courses?.length ?? 0 }))));
+  }, []);
+
+  useEffect(() => {
+    const t = setInterval(() => setActiveAi((prev) => (prev + 1) % aiTools.length), 6000);
+    return () => clearInterval(t);
   }, []);
 
   const cards = categories.length > 0 ? categories : defaultCards;
@@ -97,6 +117,49 @@ export function MainCards() {
             );
           })}
         </div>
+
+        {/* AI Tools Animation Section */}
+        <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.3 }}
+          className="mt-16">
+          <div className="flex items-center gap-2.5 mb-2">
+            <div className="p-1.5 rounded-lg bg-primary/10 border border-primary/20">
+              <Sparkles className="w-4 h-4 text-primary" />
+            </div>
+            <h2 className="text-lg font-semibold">Belajar dengan AI</h2>
+          </div>
+          <p className="text-sm text-muted-foreground/60 mb-8">Praktik langsung dengan AI assistant terpopuler.</p>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {aiTools.map((tool, i) => {
+              const active = activeAi === i;
+              return (
+                <motion.div key={tool.name} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
+                  onClick={() => setActiveAi(i)}
+                  className={`relative rounded-2xl bg-[#0F172A] border ${tool.border} p-4 transition-all duration-300 cursor-pointer overflow-hidden ${active ? "shadow-[0_0_24px_rgba(99,102,241,0.08)]" : "hover:border-white/[0.08]"}`}>
+                  <div className={`absolute inset-0 bg-gradient-to-br ${tool.color} opacity-20 pointer-events-none`} />
+                  <div className="relative">
+                    <div className="flex items-center gap-2.5 mb-3">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.06] text-sm">
+                        {tool.icon}
+                      </div>
+                      <span className="text-sm font-semibold">{tool.name}</span>
+                      {active && <span className="ml-auto flex h-2 w-2"><span className="animate-ping absolute h-2 w-2 rounded-full bg-primary opacity-75" /><span className="relative rounded-full h-2 w-2 bg-primary" /></span>}
+                    </div>
+                    <div className="space-y-2">
+                      <div className="rounded-xl bg-white/[0.04] px-3 py-2 text-xs text-muted-foreground/80">
+                        {tool.messages[0]}
+                      </div>
+                      <motion.div key={active ? "active" : "inactive"} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}
+                        className="rounded-xl bg-primary/10 border border-primary/20 px-3 py-2.5 text-xs text-foreground">
+                        {active ? <TypeWriter text={tool.messages[1]} /> : tool.messages[1]}
+                      </motion.div>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </motion.div>
       </div>
     </section>
   );
