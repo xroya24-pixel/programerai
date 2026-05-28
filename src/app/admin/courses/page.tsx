@@ -6,7 +6,7 @@ import {
   Plus, Trash2, Pencil, BookOpen, Search, FolderOpen, BarChart3,
   ChevronDown, ChevronRight, Monitor, Server, Brain, Container,
   Code2, Database, Globe, Smartphone, MoreHorizontal, Eye,
-  GraduationCap, Filter, X, LayoutGrid, GripVertical,
+  GraduationCap, Filter, X, LayoutGrid, GripVertical, Sparkles,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Refreshable } from "@/components/refreshable";
@@ -281,6 +281,8 @@ function CoursesContent() {
       .filter(cat => cat.courses.length > 0 || !search);
   }, [categories, filteredCourses, filterCategory, search, localSortOrders]);
 
+  const aiCategory = useMemo(() => categories.find(c => c.title?.toLowerCase().includes("ai")), [categories]);
+
   const uncategorized = useMemo(() =>
     filteredCourses
       .filter(c => !c.category_id)
@@ -493,10 +495,18 @@ function CoursesContent() {
             {courses.length} courses · {categories.length} categories
           </p>
         </div>
-        <Link href="/admin/courses/new"
-          className="inline-flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl h-8 px-3.5 text-xs font-medium transition-all shadow-[0_0_16px_rgba(99,102,241,0.12)] hover:shadow-[0_0_24px_rgba(99,102,241,0.2)] shrink-0">
-          <Plus className="w-3.5 h-3.5" /> New Course
-        </Link>
+        <div className="flex items-center gap-2">
+          {aiCategory && (
+            <Link href={`/admin/courses/new?category=${aiCategory.id}`}
+              className="inline-flex items-center gap-1.5 bg-gradient-to-r from-purple-500/20 to-pink-500/10 hover:from-purple-500/30 hover:to-pink-500/20 text-purple-400 rounded-xl h-8 px-3.5 text-xs font-medium transition-all border border-purple-500/20 shadow-[0_0_16px_rgba(168,85,247,0.08)] hover:shadow-[0_0_24px_rgba(168,85,247,0.15)] shrink-0">
+              <Sparkles className="w-3.5 h-3.5" /> New AI Course
+            </Link>
+          )}
+          <Link href="/admin/courses/new"
+            className="inline-flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl h-8 px-3.5 text-xs font-medium transition-all shadow-[0_0_16px_rgba(99,102,241,0.12)] hover:shadow-[0_0_24px_rgba(99,102,241,0.2)] shrink-0">
+            <Plus className="w-3.5 h-3.5" /> New Course
+          </Link>
+        </div>
       </motion.div>
 
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}

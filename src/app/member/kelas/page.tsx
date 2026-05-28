@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { BookOpen, Crown, Code, Server, Brain, Rocket } from "lucide-react";
+import { BookOpen, Crown, Code, Server, Brain, Rocket, Sparkles, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 import { useUserRole, upgradeToPremium } from "@/hooks/use-auth";
@@ -119,6 +119,26 @@ export default function KelasPage() {
         </div>
       ) : (
         <>
+          {/* AI E-Course quick access */}
+          {catOrder.some(c => c.toLowerCase().includes("ai")) && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+              className="rounded-xl bg-gradient-to-br from-purple-500/10 to-transparent border border-purple-500/20 p-3.5 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                  <Sparkles className="w-4 h-4 text-purple-400" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold">AI E-Course</p>
+                  <p className="text-[10px] text-muted-foreground/60">Kelas programming dengan AI</p>
+                </div>
+              </div>
+              <button onClick={() => setActiveCat(catOrder.find(c => c.toLowerCase().includes("ai")) ?? null)}
+                className="shrink-0 h-7 px-3 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 text-[10px] font-medium transition-all border border-purple-500/20">
+                Lihat
+              </button>
+            </motion.div>
+          )}
+
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
             className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {catOrder.map((cat) => {
