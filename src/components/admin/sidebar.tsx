@@ -21,6 +21,7 @@ import {
   MessageCircle,
   Crown,
   Sparkles,
+  Globe,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -50,6 +51,7 @@ const sections = [
       { label: "Settings", href: "/admin/settings", icon: Settings },
       { label: "Seed Data", href: "/admin/seed", icon: Sprout },
       { label: "Seed Prompts", href: "/admin/seed-prompts", icon: Sparkles },
+      { label: "Add Prompts", href: "/admin/add-prompts", icon: Globe },
     ],
   },
 ];
