@@ -54,16 +54,9 @@ export default function PremiumVerificationPage() {
     if (!confirm(`Setujui pembayaran dari ${sub.sender_name}?`)) return;
     setActionLoading(sub.id);
     const supabase = createClient();
-    const expiresAt = new Date(Date.now() + 30 * 86400000).toISOString();
-    const now = new Date().toISOString();
 
-    await supabase.from("premium_submissions").update({
-      status: "approved",
-      approved_at: now,
-      expires_at: expiresAt,
-    }).eq("id", sub.id);
-
-    await supabase.from("profiles").update({ role: "premium", expires_at: expiresAt }).eq("id", sub.user_id);
+    const { error } = await supabase.rpc("admin_approve_premium", { p_submission_id: sub.id });
+    if (error) console.error("Approve error:", error);
 
     setActionLoading(null);
     fetchData();

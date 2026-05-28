@@ -50,7 +50,7 @@ export function useUserRole() {
         if (profile.role === "premium" && profile.expires_at) {
           const exp = new Date(profile.expires_at);
           if (exp < new Date()) {
-            await supabase.from("profiles").update({ role: "member", expires_at: null }).eq("id", user.id);
+            await supabase.rpc("expire_premium");
             const parsed = JSON.parse(decodeURIComponent(document.cookie.match(/(?:^| )opencode_session=([^;]*)/)![1]));
             parsed.role = "member";
             document.cookie = `opencode_session=${encodeURIComponent(JSON.stringify(parsed))};path=/;max-age=86400`;
