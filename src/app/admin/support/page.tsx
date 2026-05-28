@@ -5,44 +5,17 @@ import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import {
-  MessageCircle,
-  Send,
-  Loader2,
-  User,
-  Search,
-  CheckCheck,
-  Clock,
-  ChevronLeft,
-  Phone,
-  MoreHorizontal,
+  MessageCircle, Send, Loader2, User, Search, CheckCheck, Clock, ChevronLeft,
 } from "lucide-react";
 
-interface Profile {
-  full_name: string | null;
-  email: string;
-}
-
+interface Profile { full_name: string | null; email: string }
 interface Conversation {
-  id: string;
-  user_id: string;
-  admin_id: string | null;
-  title: string;
-  status: string;
-  created_at: string;
-  updated_at: string;
-  profiles: Profile | null;
-  last_message?: string;
-  unread?: number;
+  id: string; user_id: string; admin_id: string | null; title: string; status: string; created_at: string; updated_at: string;
+  profiles: Profile | null; last_message?: string; unread?: number;
 }
-
 interface Message {
-  id: string;
-  conversation_id: string;
-  sender_id: string;
-  content: string;
-  created_at: string;
-  read_at: string | null;
-  profiles: Profile | null;
+  id: string; conversation_id: string; sender_id: string; content: string; created_at: string; read_at: string | null;
+  sender_name?: string;
 }
 
 export default function AdminSupportPage() {
@@ -55,14 +28,13 @@ export default function AdminSupportPage() {
   const [search, setSearch] = useState("");
   const [adminId, setAdminId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const channelRef = useRef<any>(null);
   const supabase = createClient();
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
+  useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" }); }, [messages]);
 
+  // Init
   useEffect(() => {
     const init = async () => {
       setLoading(true);
@@ -74,106 +46,64 @@ export default function AdminSupportPage() {
         .from("conversations")
         .select("*, profiles(full_name, email)")
         .order("updated_at", { ascending: false });
-      setConversations((convs ?? []) as unknown as Conversation[]);
+      const list = (convs ?? []) as unknown as Conversation[];
 
-      // Get last message and unread count per conversation
-      for (const conv of convs ?? []) {
-        const { data: lastMsg } = await supabase
-          .from("messages")
-          .select("content, created_at")
-          .eq("conversation_id", conv.id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .single();
-
-        const { count: unread } = await supabase
-          .from("messages")
-          .select("id", { count: "exact", head: true })
-          .eq("conversation_id", conv.id)
-          .neq("sender_id", user.id)
-          .is("read_at", null);
-
-        setConversations((prev) =>
-          prev.map((c) =>
-            c.id === conv.id
-              ? { ...c, last_message: lastMsg?.content ?? "", unread: unread ?? 0 }
-              : c
-          )
-        );
+      for (const conv of list) {
+        const { data: lastMsg } = await supabase.from("messages")
+          .select("content").eq("conversation_id", conv.id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+        const { count: unread } = await supabase.from("messages")
+          .select("id", { count: "exact", head: true }).eq("conversation_id", conv.id).neq("sender_id", user.id).is("read_at", null);
+        conv.last_message = lastMsg?.content ?? "";
+        conv.unread = unread ?? 0;
       }
+      setConversations(list);
       setLoading(false);
     };
     init();
   }, []);
 
+  // Load messages when conversation selected + Realtime Broadcast
   useEffect(() => {
-    if (!selected) return;
+    if (!selected || !adminId) return;
     let cancelled = false;
-    const loadMessages = async () => {
-      const { data: msgs } = await supabase
-        .from("messages")
-        .select("*, profiles(full_name, email)")
-        .eq("conversation_id", selected.id)
-        .order("created_at", { ascending: true });
+
+    const load = async () => {
+      const { data: msgs } = await supabase.from("messages")
+        .select("*").eq("conversation_id", selected.id).order("created_at", { ascending: true });
       if (cancelled) return;
-      setMessages((msgs ?? []) as unknown as Message[]);
+      setMessages((msgs ?? []) as Message[]);
 
-      const unreadIds = (msgs ?? []).filter((m: any) => m.sender_id !== adminId && !m.read_at).map((m: any) => m.id);
-      if (unreadIds.length > 0 && !cancelled) {
+      const unreadIds = (msgs ?? []).filter(m => m.sender_id !== adminId && !m.read_at).map(m => m.id);
+      if (unreadIds.length > 0) {
         await supabase.from("messages").update({ read_at: new Date().toISOString() }).in("id", unreadIds);
+        setConversations(prev => prev.map(c => c.id === selected.id ? { ...c, unread: 0 } : c));
       }
-
-      if (!selected.admin_id && !cancelled) {
+      if (!selected.admin_id) {
         await supabase.from("conversations").update({ admin_id: adminId }).eq("id", selected.id);
-        setSelected((prev) => prev ? { ...prev, admin_id: adminId } : null);
+        setSelected(prev => prev ? { ...prev, admin_id: adminId } : null);
       }
     };
-    loadMessages();
-    return () => { cancelled = true; };
-  }, [selected?.id, adminId]);
+    load();
 
-  // Realtime subscribe
-  useEffect(() => {
-    if (!selected) return;
-    const channel = supabase
-      .channel(`admin-messages:${selected.id}`)
-      .on("postgres_changes", {
-        event: "INSERT",
-        schema: "public",
-        table: "messages",
-        filter: `conversation_id=eq.${selected.id}`,
-      }, (payload) => {
-        const newMsg = payload.new as Message;
-        setMessages((prev) => {
-          if (prev.some((m) => m.id === newMsg.id)) return prev;
-          return [...prev, newMsg];
-        });
+    // Subscribe to Broadcast channel
+    const channel = supabase.channel(`chat:${selected.id}`);
+    channel.on("broadcast", { event: "message" }, (payload: any) => {
+      if (cancelled) return;
+      setMessages(prev => prev.some(m => m.id === payload.payload.id) ? prev : [...prev, payload.payload]);
+    });
+    channel.subscribe();
+    channelRef.current = channel;
 
-        // Mark as read automatically
-        if (newMsg.sender_id !== adminId && adminId) {
-          supabase.from("messages").update({ read_at: new Date().toISOString() }).eq("id", newMsg.id);
-        }
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
+    return () => { cancelled = true; supabase.removeChannel(channel); };
   }, [selected?.id, adminId]);
 
   // Listen for new conversations
   useEffect(() => {
-    const channel = supabase
-      .channel("admin-conversations")
-      .on("postgres_changes", {
-        event: "INSERT",
-        schema: "public",
-        table: "conversations",
-      }, async (payload) => {
-        const newConv = payload.new as Conversation;
-        const { data: profile } = await supabase.from("profiles").select("full_name, email").eq("id", newConv.user_id).single();
-        setConversations((prev) => [{ ...newConv, profiles: profile as unknown as Profile }, ...prev]);
-      })
-      .subscribe();
-
+    const channel = supabase.channel("admin-convs");
+    channel.on("broadcast", { event: "new-conversation" }, (payload: any) => {
+      setConversations(prev => prev.some(c => c.id === payload.payload.id) ? prev : [payload.payload, ...prev]);
+    });
+    channel.subscribe();
     return () => { supabase.removeChannel(channel); };
   }, []);
 
@@ -183,33 +113,47 @@ export default function AdminSupportPage() {
     const content = input.trim();
     setInput("");
 
-    const { error } = await supabase.from("messages").insert({
+    const msg: Message = {
+      id: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`,
       conversation_id: selected.id,
       sender_id: adminId,
       content,
+      created_at: new Date().toISOString(),
+      read_at: null,
+      sender_name: "Admin",
+    };
+
+    setMessages(prev => [...prev, msg]);
+
+    await supabase.from("messages").insert({
+      id: msg.id, conversation_id: msg.conversation_id, sender_id: msg.sender_id, content: msg.content,
     });
 
-    if (error) {
-      console.error("Send error:", error);
-      setInput(content);
-    }
+    // Broadcast to everyone
+    const ch = channelRef.current ?? supabase.channel(`chat:${selected.id}`);
+    if (!channelRef.current) ch.subscribe();
+    ch.send({ type: "broadcast", event: "message", payload: msg });
+
+    // Update conversation list
+    setConversations(prev => {
+      const updated = prev.filter(c => c.id !== selected.id);
+      return [{ ...selected, last_message: content, updated_at: msg.created_at }, ...updated];
+    });
+
     setSending(false);
+    inputRef.current?.focus();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
-  const filteredConvs = conversations.filter((c) => {
+  const filteredConvs = conversations.filter(c => {
     if (!search) return true;
     const q = search.toLowerCase();
-    const title = c.title?.toLowerCase() ?? "";
-    const name = c.profiles?.full_name?.toLowerCase() ?? "";
-    const email = c.profiles?.email?.toLowerCase() ?? "";
-    return title.includes(q) || name.includes(q) || email.includes(q);
+    return (c.title?.toLowerCase() ?? "").includes(q)
+      || (c.profiles?.full_name?.toLowerCase() ?? "").includes(q)
+      || (c.profiles?.email?.toLowerCase() ?? "").includes(q);
   });
 
   if (loading) return <div className="flex items-center justify-center py-20"><div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" /></div>;
@@ -217,10 +161,7 @@ export default function AdminSupportPage() {
   return (
     <div className="flex h-[calc(100vh-7rem)] -m-6 md:-m-8">
       {/* Conversation List */}
-      <div className={cn(
-        "w-[280px] shrink-0 border-r border-white/[0.04] flex flex-col bg-[#0F172A]/50",
-        selected && "hidden md:flex"
-      )}>
+      <div className={cn("w-[280px] shrink-0 border-r border-white/[0.04] flex flex-col bg-[#0F172A]/50", selected && "hidden md:flex")}>
         <div className="p-3 border-b border-white/[0.04]">
           <div className="flex items-center gap-2 mb-2">
             <MessageCircle className="w-4 h-4 text-primary" />
@@ -228,7 +169,7 @@ export default function AdminSupportPage() {
           </div>
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/30" />
-            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..."
+            <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..."
               className="w-full h-8 pl-8 pr-3 rounded-lg bg-white/[0.04] border border-white/[0.06] text-xs text-foreground placeholder:text-muted-foreground/30 focus:outline-none focus:border-primary/30" />
           </div>
         </div>
@@ -236,12 +177,9 @@ export default function AdminSupportPage() {
           {filteredConvs.length === 0 && (
             <p className="text-center text-xs text-muted-foreground/40 py-8">Belum ada percakapan.</p>
           )}
-          {filteredConvs.map((conv) => (
+          {filteredConvs.map(conv => (
             <button key={conv.id} onClick={() => setSelected(conv)}
-              className={cn(
-                "w-full text-left p-3 rounded-xl transition-all",
-                selected?.id === conv.id ? "bg-primary/[0.08] border border-primary/[0.12]" : "hover:bg-white/[0.03] border border-transparent"
-              )}>
+              className={cn("w-full text-left p-3 rounded-xl transition-all", selected?.id === conv.id ? "bg-primary/[0.08] border border-primary/[0.12]" : "hover:bg-white/[0.03] border border-transparent")}>
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
                   <User className="w-4 h-4 text-primary/60" />
@@ -272,7 +210,6 @@ export default function AdminSupportPage() {
           </div>
         ) : (
           <>
-            {/* Header */}
             <div className="flex items-center gap-2.5 px-4 py-3 border-b border-white/[0.04] shrink-0">
               <button onClick={() => setSelected(null)} className="md:hidden p-1 rounded hover:bg-white/[0.05]">
                 <ChevronLeft className="w-4 h-4" />
@@ -286,7 +223,6 @@ export default function AdminSupportPage() {
               </div>
             </div>
 
-            {/* Messages */}
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
               {messages.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -294,18 +230,13 @@ export default function AdminSupportPage() {
                   <p className="text-xs text-muted-foreground/60">Belum ada pesan.</p>
                 </div>
               )}
-              {messages.map((msg) => {
+              {messages.map(msg => {
                 const isAdmin = msg.sender_id === adminId;
                 return (
                   <div key={msg.id} className={cn("flex", isAdmin ? "justify-end" : "justify-start")}>
                     <div className={cn("max-w-[75%] space-y-1", isAdmin && "items-end")}>
-                      <div className={cn(
-                        "rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
-                        isAdmin
-                          ? "bg-primary/20 text-foreground rounded-br-md"
-                          : "bg-white/[0.04] text-foreground rounded-bl-md"
-                      )}>
-                        <p className="text-xs text-muted-foreground/50 mb-1">{isAdmin ? "Admin" : (msg.profiles?.full_name ?? "User")}</p>
+                      <div className={cn("rounded-2xl px-4 py-2.5 text-sm leading-relaxed", isAdmin ? "bg-primary/20 text-foreground rounded-br-md" : "bg-white/[0.04] text-foreground rounded-bl-md")}>
+                        <p className="text-xs text-muted-foreground/50 mb-1">{isAdmin ? "Admin" : (msg.sender_name ?? "User")}</p>
                         <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                       </div>
                       <div className="flex items-center gap-1.5 px-1">
@@ -324,10 +255,9 @@ export default function AdminSupportPage() {
               })}
             </div>
 
-            {/* Input */}
             <div className="border-t border-white/[0.04] p-3">
               <div className="flex items-end gap-2">
-                <textarea value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown}
+                <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
                   rows={1} placeholder="Ketik balasan..."
                   className="flex-1 max-h-32 rounded-xl bg-white/[0.04] border border-white/[0.06] px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary/30 resize-none" />
                 <button onClick={handleSend} disabled={!input.trim() || sending}
